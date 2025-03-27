@@ -1,5 +1,5 @@
 <p align="right">
-  🌐 [English](docs/README.en.md) | [繁體中文](README.md)
+  🌐 [English](docs/Readme.en.md) | [繁體中文](README.md)
 </p>
 # MongoDB GODM Usage Guide (Using User Model as an Example)
 

@@ -1,5 +1,5 @@
 <file name=0 path=/Users/aluo/project/gotest/Readme.md><p align="right">
-  🌐 [English](docs/README.en.md) | [繁體中文](README.md)
+  🌐 [English](docs/Readme.en.md) | [繁體中文](README.md)
 </p>
 # MongoDB GODM 使用說明（以 User 模型為範例）
 

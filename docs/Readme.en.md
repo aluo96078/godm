@@ -1,4 +1,4 @@
-[English](./Readme.en.md) | [繁體中文](../README.md)
+[English](./Readme.en.md) | [繁體中文](../Readme.md)
 
 # GODM: A Simple Query Mapper for MongoDB in Go
 

@@ -1,6 +1,4 @@
-<p align="right">
-  🌐 [English](docs/Readme.en.md) | [繁體中文](README.md)
-</p>
+[English](docs/Readme.en.md) | [繁體中文](README.md)
 
 # GODM：MongoDB for Go 的簡易查詢映射器
 

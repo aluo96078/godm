@@ -1,34 +1,32 @@
-<p align="right">
-  🌐 [English](docs/Readme.en.md) | [繁體中文](README.md)
-</p>
+[English](./Readme.en.md) | [繁體中文](../README.md)
 
-# GODM：MongoDB for Go 的簡易查詢映射器
+# GODM: A Simple Query Mapper for MongoDB in Go
 
-## 🧩 簡介
+## 🧩 Introduction
 
-GODM（Go Object-Document Mapper）是一個用於 MongoDB 的輕量級查詢封裝工具，使用 Go 語言實作。它提供類似 ORM 的開發體驗，並針對常見的查詢條件與鏈式操作做了簡化，幫助你快速構建資料模型並執行 CRUD、聚合、事務等操作。
+GODM (Go Object-Document Mapper) is a lightweight query encapsulation tool for MongoDB, implemented in Go. It provides an ORM-like development experience and simplifies common query conditions and chain operations, helping you quickly build data models and perform CRUD, aggregation, transactions, and other operations.
 
-核心實作位於 [`pkg/odm`](./pkg/odm)，使用範例可見於 [`examples/`](./examples)。
+The core implementation is located in [`pkg/odm`](./pkg/odm), and usage examples can be found in [`examples/`](./examples).
 
 ---
 
-## ✨ 功能特色
+## ✨ Features
 
-- 🚀 鏈式查詢語法（Where, OrWhere, WhereIn 等）
-- 🔧 自動關聯資料模型與集合（支援自定義集合名與資料庫名）
-- 💾 支援 CRUD 與 BulkCreate
-- 🧠 支援複雜查詢條件組合（AND / OR）
-- 🔁 支援 MongoDB 聚合管道
-- 💼 內建事務封裝 `WithTransaction`
-- 🧪 簡潔易測試，模組化設計便於擴展
+- 🚀 Chain query syntax (Where, OrWhere, WhereIn, etc.)
+- 🔧 Automatic association of data models and collections (supports custom collection names and database names)
+- 💾 Supports CRUD and BulkCreate
+- 🧠 Supports complex query condition combinations (AND / OR)
+- 🔁 Supports MongoDB aggregation pipeline
+- 💼 Built-in transaction wrapper `WithTransaction`
+- 🧪 Simple and testable, modular design for easy extension
 
 ---
 
-## 🛠 使用方式（以 User 模型為例）
+## 🛠 Usage (with User model example)
 
-### 方法覆寫（回傳自定義型別）
+### Method Override (Return Custom Type)
 
-GODM 方法預設回傳 `*GODM`，但若您希望保留自定義模型型別（例如 `*User`）以便鏈式操作時能存取欄位，可以在模型中覆寫對應方法，例如：
+GODM methods default to returning `*GODM`, but if you wish to retain a custom model type (e.g., `*User`) to access fields during chain operations, you can override the corresponding method in the model, for example:
 
 ```go
 func (o *User) SetCollectionName(name string) *User {
@@ -40,14 +38,14 @@ func (o *User) SetCollectionName(name string) *User {
 }
 ```
 
-這樣就可以保留類型一致性：
+This way, you can maintain type consistency:
 
 ```go
 u := NewUser().SetCollectionName("custom_users")
-fmt.Println(u.Name) // 可直接使用 *User 欄位
+fmt.Println(u.Name) // Can directly use *User fields
 ```
 
-### 建立與查詢
+### Creating and Querying
 
 ```go
 user := NewUser()
@@ -55,11 +53,11 @@ user.Name = "Test"
 user.Email = "test@example.com"
 _ = user.Create()
 
-// 查詢第一筆資料
+// Query the first record
 err := user.Where("email", "=", "test@example.com").First()
 ```
 
-### 聚合與事務操作
+### Aggregation and Transaction Operations
 
 ```go
 pipeline := mongo.Pipeline{
@@ -74,17 +72,17 @@ _ = user.WithTransaction(func(sess mongo.SessionContext) error {
 })
 ```
 
-### 更多查詢示例
+### More Query Examples
 
-#### 使用 `WhereID`
+#### Using `WhereID`
 
 ```go
-// 根據 MongoDB ObjectID 查詢文件
+// Query document by MongoDB ObjectID
 user := NewUser()
 _ = user.WhereID("65f74c3a09c7a8f812345678").First()
 ```
 
-#### 使用 OR 查詢
+#### Using OR Query
 
 ```go
 var users []User
@@ -94,7 +92,7 @@ err := NewUser().
     All(&users)
 ```
 
-#### 使用 WhereIn 與欄位選取
+#### Using WhereIn and Field Selection
 
 ```go
 var users []User
@@ -105,7 +103,7 @@ err := NewUser().
     All(&users)
 ```
 
-#### 使用分頁與排序
+#### Using Pagination and Sorting
 
 ```go
 var users []User
@@ -116,7 +114,7 @@ err := NewUser().
     All(&users)
 ```
 
-#### 使用自定義上下文（含超時）
+#### Using Custom Context (with Timeout)
 
 ```go
 ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -128,17 +126,17 @@ _ = user.Where("email", "=", "timeout@example.com").First()
 
 ---
 
-## 💡 靈感來源
+## 💡 Inspiration
 
-GODM 的設計靈感來自於 [Laravel Eloquent ORM](https://laravel.com/docs/eloquent)，試圖為 Golang 帶來一種熟悉且簡潔的資料查詢體驗。它並非 ORM，而是專注於查詢構建、結果解碼與事務包裝，適合喜歡鏈式語法與輕量抽象的使用者。
+The design of GODM is inspired by [Laravel Eloquent ORM](https://laravel.com/docs/eloquent), aiming to bring a familiar and concise data querying experience to Golang. It is not an ORM, but focuses on query building, result decoding, and transaction wrapping, suitable for users who enjoy chain syntax and lightweight abstraction.
 
-## 📂 專案結構
+## 📂 Project Structure
 
 ```
 godm/
-├── examples/        # 使用範例：main.go, user.go
+├── examples/        # Usage examples: main.go, user.go
 ├── pkg/
-│   └── odm/         # GODM 核心實作（已模組化）
+│   └── odm/         # Core implementation of GODM (modularized)
 │       ├── aggregate.go
 │       ├── config.go
 │       ├── context.go
@@ -154,6 +152,6 @@ godm/
 
 ---
 
-## 📄 授權
+## 📄 License
 
-本專案採用 [MIT License](./LICENSE) 授權。
+This project is licensed under the [MIT License](./LICENSE).

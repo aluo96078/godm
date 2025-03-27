@@ -1,7 +1,10 @@
 <file name=0 path=/Users/aluo/project/gotest/Readme.md><p align="right">
   🌐 [English](docs/Readme.en.md) | [繁體中文](README.md)
 </p>
+
 # MongoDB GODM 使用說明（以 User 模型為範例）
+
+## 1. 概述
 
 本專案提供一個輕量級的 MongoDB GODM（Object-Document Mapper），封裝在 `odm/godm.go` 中。使用者可透過內嵌該 GODM 結構來快速為任意資料模型賦予 MongoDB 查詢與操作能力。
 

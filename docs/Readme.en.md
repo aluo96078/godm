@@ -1,7 +1,10 @@
 <p align="right">
   🌐 [English](docs/Readme.en.md) | [繁體中文](README.md)
 </p>
+
 # MongoDB GODM Usage Guide (Using User Model as an Example)
+
+## 1. Introduction 
 
 This project provides a lightweight MongoDB GODM (Object-Document Mapper), encapsulated in `odm/godm.go`. Users can quickly endow any data model with MongoDB querying and operation capabilities by embedding this GODM structure.
 

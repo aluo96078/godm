@@ -4,7 +4,7 @@
 
 ## 🧩 Introduction
 
-GODM (Go Object-Document Mapper) is a lightweight query encapsulation tool for MongoDB, implemented in Go. It provides an ORM-like development experience and simplifies common query conditions and chain operations, helping you quickly build data models and perform CRUD, aggregation, transactions, and other operations.
+GODM (Go Object-Document Mapper) is a lightweight query encapsulation tool for MongoDB, implemented in the Go language. It provides an ORM-like development experience and simplifies common query conditions and chain operations, helping you quickly build data models and perform CRUD, aggregation, transaction, and other operations.
 
 The core implementation is located in [`pkg/odm`](./pkg/odm), and usage examples can be found in [`examples/`](./examples).
 
@@ -16,17 +16,109 @@ The core implementation is located in [`pkg/odm`](./pkg/odm), and usage examples
 - 🔧 Automatic association of data models and collections (supports custom collection names and database names)
 - 💾 Supports CRUD and BulkCreate
 - 🧠 Supports complex query condition combinations (AND / OR)
-- 🔁 Supports MongoDB aggregation pipeline
-- 💼 Built-in transaction wrapper `WithTransaction`
-- 🧪 Simple and testable, modular design for easy extension
+- 🔁 Supports MongoDB aggregation pipelines
+- 💼 Built-in transaction encapsulation `WithTransaction`
+- 👀 Built-in Observer mechanism, supporting model-level, global, sorting, and filtering (Inspired by Laravel)
+- 🧪 Simple and easy to test, modular design facilitates expansion
 
----
+## 👀 Observer Mechanism
 
-## 🛠 Usage (with User model example)
+GODM has a built-in Observer system similar to Laravel Eloquent, allowing you to automatically trigger corresponding logic before and after the `Create`, `Update`, and `Delete` operations on models, suitable for scenarios such as data validation, logging, and event tracking.
 
-### Method Override (Return Custom Type)
+### 🎯 Supported Events
 
-GODM methods default to returning `*GODM`, but if you wish to retain a custom model type (e.g., `*User`) to access fields during chain operations, you can override the corresponding method in the model, for example:
+- `creating` / `created`
+- `updating` / `updated`
+- `deleting` / `deleted`
+
+### 📦 Usage
+
+#### Define Observer
+
+```go
+type UserObserver struct{}
+
+func (UserObserver) Creating(model interface{}) error {
+    fmt.Println("Creating:", model)
+    return nil
+}
+
+func (UserObserver) Created(model interface{}) error {
+    fmt.Println("Created:", model)
+    return nil
+}
+```
+
+#### Model Self-Registration (Recommended)
+
+Models can implement the `ObservedModel` interface to automatically bind the corresponding observer:
+
+```go
+func (u User) Observers() []odm.ModelObserver {
+    return []odm.ModelObserver{UserObserver{}}
+}
+```
+
+This way, when calling `user.Create()`, the observer will be triggered automatically.
+
+### 🌐 Global Observer
+
+You can register a global Observer that applies to all models:
+
+```go
+odm.RegisterGlobalObserver(AuditObserver{})
+```
+
+### 🎛️ Observer Extensions
+
+#### ✅ Event Filtering (Observe Only Certain Events)
+
+Implement the `EventFilter` interface:
+
+```go
+func (o UserObserver) InterestedIn(stage string) bool {
+    return stage == "creating" || stage == "deleted"
+}
+```
+
+#### ✅ Model Filtering (Listen Only to Certain Models)
+
+Implement the `TypedObserver` interface:
+
+```go
+func (o UserObserver) Accepts(model interface{}) bool {
+    _, ok := model.(*User)
+    return ok
+}
+```
+
+#### ✅ Priority
+
+Implement `PrioritizedObserver` to control the execution order:
+
+```go
+func (o UserObserver) Priority() int {
+    return 100 // Higher numbers execute earlier
+}
+```
+
+#### ✅ Error Handling Interception
+
+A global error handler can be set:
+
+```go
+odm.RegisterObserverErrorHandler(func(err error, stage string, model interface{}) {
+    log.Printf("[observer error] %s: %v", stage, err)
+})
+```
+
+If you have more advanced requirements (such as event queues, asynchronous observers), the GODM architecture supports further expansion.
+
+## 🛠 Usage (Using User Model as an Example)
+
+### Method Overriding (Return Custom Type)
+
+GODM methods default to returning `*GODM`, but if you want to retain custom model types (e.g., `*User`) to access fields during chain operations, you can override the corresponding methods in your model, for example:
 
 ```go
 func (o *User) SetCollectionName(name string) *User {
@@ -38,14 +130,14 @@ func (o *User) SetCollectionName(name string) *User {
 }
 ```
 
-This way, you can maintain type consistency:
+This way, type consistency can be maintained:
 
 ```go
 u := NewUser().SetCollectionName("custom_users")
 fmt.Println(u.Name) // Can directly use *User fields
 ```
 
-### Creating and Querying
+### Create and Query
 
 ```go
 user := NewUser()
@@ -53,7 +145,7 @@ user.Name = "Test"
 user.Email = "test@example.com"
 _ = user.Create()
 
-// Query the first record
+// Query the first piece of data
 err := user.Where("email", "=", "test@example.com").First()
 ```
 
@@ -128,30 +220,36 @@ _ = user.Where("email", "=", "timeout@example.com").First()
 
 ## 💡 Inspiration
 
-The design of GODM is inspired by [Laravel Eloquent ORM](https://laravel.com/docs/eloquent), aiming to bring a familiar and concise data querying experience to Golang. It is not an ORM, but focuses on query building, result decoding, and transaction wrapping, suitable for users who enjoy chain syntax and lightweight abstraction.
+The design of GODM is inspired by [Laravel Eloquent ORM](https://laravel.com/docs/eloquent), aiming to bring a familiar and concise data query experience to Golang. It is not an ORM but focuses on query building, result decoding, and transaction wrapping, suitable for users who enjoy chain syntax and lightweight abstraction.
 
 ## 📂 Project Structure
 
 ```
 godm/
-├── examples/        # Usage examples: main.go, user.go
+├── examples/                  # Usage examples, including entry points and custom User models
+│   ├── example.go
+│   └── user_observer.go
+│   └── user.go
 ├── pkg/
-│   └── odm/         # Core implementation of GODM (modularized)
-│       ├── aggregate.go
-│       ├── config.go
-│       ├── context.go
-│       ├── crud.go
-│       ├── model.go
-│       ├── operator.go
-│       ├── query.go
-│       ├── transaction.go
-│       └── util.go
-├── go.mod
-└── README.md
+│   └── odm/                   # Core implementation of GODM
+│       ├── aggregate.go       # Helper for MongoDB aggregation operations
+│       ├── config.go          # Configuration and global database client settings
+│       ├── context.go         # Context handling (custom context injection)
+│       ├── crud.go            # CRUD methods: create, update, delete, etc.
+│       ├── model.go           # GODM structure definitions and chain operation API
+│       ├── operator.go        # MongoDB operators and corresponding handling
+│       ├── query.go           # Query building logic (where, orWhere, select, etc.)
+│       ├── transaction.go     # Transaction wrapping using MongoDB sessions
+│       ├── util.go            # Utility functions (e.g., ObjectID handling)
+│       ├── observer.go        # Observer interface and registration logic
+│       └── observer_dispatch.go # Observer execution and dispatch logic
+├── go.mod                     # Go module definition file
+└── README.md                  # This documentation file
+└── Changelog.md               # Version history
 ```
 
 ---
 
 ## 📄 License
 
-This project is licensed under the [MIT License](./LICENSE).
+This project is licensed under the [MIT License](./License).

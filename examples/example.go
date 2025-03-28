@@ -25,6 +25,10 @@ func Examples() {
 	// Set the global MongoClient
 	odm.MongoClient = client
 
+	// 註冊全局觀察者
+	// Register global observers
+	odm.RegisterGlobalObserver(&UserObserver{})
+
 	// -------------------------------------------------------
 	// 2. Create 操作 - 建立一個新使用者
 	// 2. Create operation - Create a new user

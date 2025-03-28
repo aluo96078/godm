@@ -18,9 +18,101 @@ GODM（Go Object-Document Mapper）是一個用於 MongoDB 的輕量級查詢封
 - 🧠 支援複雜查詢條件組合（AND / OR）
 - 🔁 支援 MongoDB 聚合管道
 - 💼 內建事務封裝 `WithTransaction`
+- 👀 內建 Observer 機制，支援模型級、全域、排序與過濾（Inspired by Laravel）
 - 🧪 簡潔易測試，模組化設計便於擴展
 
----
+## 👀 Observer 機制（模型監聽）
+
+GODM 內建 Laravel Eloquent 式的 Observer 系統，可讓你在模型的 `Create`、`Update`、`Delete` 操作前後，自動觸發對應邏輯，適合用於資料驗證、日誌記錄、事件追蹤等情境。
+
+### 🎯 支援的事件
+
+- `creating` / `created`
+- `updating` / `updated`
+- `deleting` / `deleted`
+
+### 📦 使用方式
+
+#### 定義 Observer
+
+```go
+type UserObserver struct{}
+
+func (UserObserver) Creating(model interface{}) error {
+	fmt.Println("Creating:", model)
+	return nil
+}
+
+func (UserObserver) Created(model interface{}) error {
+	fmt.Println("Created:", model)
+	return nil
+}
+```
+
+#### 模型自註冊（推薦）
+
+模型可以實作 `ObservedModel` 介面，自動綁定對應的 observer：
+
+```go
+func (u User) Observers() []odm.ModelObserver {
+	return []odm.ModelObserver{UserObserver{}}
+}
+```
+
+這樣在呼叫 `user.Create()` 時會自動觸發 observer。
+
+### 🌐 全域 Observer
+
+可以全域註冊 Observer，對所有模型生效：
+
+```go
+odm.RegisterGlobalObserver(AuditObserver{})
+```
+
+### 🎛️ Observer 擴充功能
+
+#### ✅ 事件過濾（只觀察某些事件）
+
+實作 `EventFilter` 介面：
+
+```go
+func (o UserObserver) InterestedIn(stage string) bool {
+	return stage == "creating" || stage == "deleted"
+}
+```
+
+#### ✅ 模型過濾（只監聽某些模型）
+
+實作 `TypedObserver` 介面：
+
+```go
+func (o UserObserver) Accepts(model interface{}) bool {
+	_, ok := model.(*User)
+	return ok
+}
+```
+
+#### ✅ 優先順序（Priority）
+
+實作 `PrioritizedObserver`，可控制執行順序：
+
+```go
+func (o UserObserver) Priority() int {
+	return 100 // 數字越大越早執行
+}
+```
+
+#### ✅ 錯誤處理攔截
+
+可設定全域錯誤攔截器：
+
+```go
+odm.RegisterObserverErrorHandler(func(err error, stage string, model interface{}) {
+	log.Printf("[observer error] %s: %v", stage, err)
+})
+```
+
+如果你有更多進階需求（例如事件佇列、非同步 observer），GODM 架構已支援進一步擴展。
 
 ## 🛠 使用方式（以 User 模型為例）
 
@@ -134,24 +226,30 @@ GODM 的設計靈感來自於 [Laravel Eloquent ORM](https://laravel.com/docs/el
 
 ```
 godm/
-├── examples/        # 使用範例：main.go, user.go
+├── examples/                  # 使用範例，包含進入點與自訂 User 模型
+│   ├── example.go
+│   └── user_observer.go
+│   └── user.go
 ├── pkg/
-│   └── odm/         # GODM 核心實作（已模組化）
-│       ├── aggregate.go
-│       ├── config.go
-│       ├── context.go
-│       ├── crud.go
-│       ├── model.go
-│       ├── operator.go
-│       ├── query.go
-│       ├── transaction.go
-│       └── util.go
-├── go.mod
-└── README.md
+│   └── odm/                   # GODM 核心實作
+│       ├── aggregate.go       # MongoDB 聚合操作輔助工具
+│       ├── config.go          # 組態與全域資料庫客戶端設定
+│       ├── context.go         # Context 處理（自定義 context 注入）
+│       ├── crud.go            # CRUD 方法：建立、更新、刪除等
+│       ├── model.go           # GODM 結構定義與鏈式操作 API
+│       ├── operator.go        # MongoDB 運算子與對應處理
+│       ├── query.go           # 查詢構建邏輯（where, orWhere, select 等）
+│       ├── transaction.go     # 使用 MongoDB session 的交易包裝
+│       ├── util.go            # 工具函式（如 ObjectID 處理）
+│       ├── observer.go        # Observer 介面與註冊邏輯
+│       └── observer_dispatch.go # Observer 執行與分派邏輯
+├── go.mod                     # Go module 定義檔
+└── README.md                  # 本說明文件
+└── Changelog.md              # 版本紀錄
 ```
 
 ---
 
 ## 📄 授權
 
-本專案採用 [MIT License](./LICENSE) 授權。
+本專案採用 [MIT License](./License) 授權。

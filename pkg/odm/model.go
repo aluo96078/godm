@@ -11,8 +11,8 @@ var MongoClient *mongo.Client
 
 type GODM struct {
 	Collection     *mongo.Collection
-	Filter         bson.D   // AND 條件 // AND conditions
-	OrFilter       []bson.M // OR 條件 // OR conditions
+	Filter         bson.D
+	OrFilter       []bson.M
 	Model          interface{}
 	LimitCount     int64
 	SortFields     bson.D
@@ -20,5 +20,7 @@ type GODM struct {
 	Projection     bson.M
 	Ctx            context.Context
 	CollectionName string
-	DbName         string // 資料庫名稱 // Database name
+	DbName         string
+
+	Observers []ModelObserver // 支援多個 observer
 }

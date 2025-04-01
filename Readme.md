@@ -216,6 +216,20 @@ user := NewUser().WithContext(ctx)
 _ = user.Where("email", "=", "timeout@example.com").First()
 ```
 
+#### 判斷指定目標是否存在
+
+```go
+exists, err := NewUser().
+    WhereIn("name", []interface{}{"Alice", "Bob"}).
+    Exists()
+if err != nil {
+	// error process
+}
+if (exists) {
+	// code ...
+}
+```
+
 ---
 
 ## 💡 靈感來源

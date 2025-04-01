@@ -130,3 +130,13 @@ func (o *GODM) All(results interface{}) error {
 
 	return cursor.All(o.getContext(), results)
 }
+
+// Exists 檢查是否存在符合過濾條件的文檔。
+// Exists checks if a document exists that matches the filter.
+func (o *GODM) Exists() (bool, error) {
+	count, err := o.Count()
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}

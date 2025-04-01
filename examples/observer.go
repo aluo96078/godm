@@ -2,6 +2,7 @@ package examples
 
 import (
 	"fmt"
+	examples "godm/examples/model"
 	"godm/pkg/odm"
 )
 
@@ -37,7 +38,7 @@ func (UserObserver) InterestedIn(stage string) bool {
 }
 
 func (UserObserver) Accepts(model interface{}) bool {
-	_, ok := model.(*User)
+	_, ok := model.(*examples.User)
 	return ok
 }
 

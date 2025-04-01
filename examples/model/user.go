@@ -14,6 +14,8 @@ type User struct {
 	ID       primitive.ObjectID `bson:"_id,omitempty"`
 	Name     string             `bson:"name"`
 	Email    string             `bson:"email"`
+
+	Posts []Post `bson:"posts,omitempty"`
 }
 
 // NewUser 建立一個新的 User 實例，並初始化 ODM。

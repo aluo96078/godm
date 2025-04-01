@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -47,11 +48,56 @@ func (o *GODM) BulkCreate(models []interface{}) error {
 // First retrieves the first document matching the filter.
 // First 根據過濾條件檢索第一個文檔。
 func (o *GODM) First() error {
+	if len(o.WithRelations) > 0 {
+		pipeline := []bson.M{
+			{"$match": o.buildFinalFilter()},
+		}
+
+		for _, rel := range o.WithRelations {
+			conf, ok := o.RelationConfigs[rel]
+			if !ok {
+				continue
+			}
+			pipeline = append(pipeline, bson.M{
+				"$lookup": bson.M{
+					"from":         conf.From,
+					"localField":   conf.LocalField,
+					"foreignField": conf.ForeignField,
+					"as":           conf.As,
+				},
+			})
+			if !conf.IsArray {
+				pipeline = append(pipeline, bson.M{
+					"$unwind": bson.M{
+						"path":                       "$" + conf.As,
+						"preserveNullAndEmptyArrays": true,
+					},
+				})
+			}
+		}
+
+		pipeline = append(pipeline, bson.M{"$limit": 1})
+		cursor, err := o.Collection.Aggregate(o.getContext(), pipeline)
+		if err != nil {
+			return fmt.Errorf("aggregate error: %w", err)
+		}
+		defer cursor.Close(o.getContext())
+
+		if cursor.Next(o.getContext()) {
+			if err := cursor.Decode(o.Model); err != nil {
+				return fmt.Errorf("decode error: %w (type = %T)", err, o.Model)
+			}
+			return nil
+		}
+		return mongo.ErrNoDocuments
+	}
+
 	findOptions := options.FindOne()
 	if o.Projection != nil {
 		findOptions.SetProjection(o.Projection)
 	}
-	return o.Collection.FindOne(o.getContext(), o.buildFinalFilter(), findOptions).Decode(o.Model)
+
+	return o.Collection.FindOne(o.getContext(), o.buildFinalFilter()).Decode(o.Model)
 }
 
 // Update applies the updates to the first document matching the filter.
@@ -109,6 +155,54 @@ func (o *GODM) Count() (int64, error) {
 // All retrieves all documents matching the filter.
 // All 根據過濾條件檢索所有文檔。
 func (o *GODM) All(results interface{}) error {
+	if len(o.WithRelations) > 0 {
+		pipeline := []bson.M{
+			{"$match": o.buildFinalFilter()},
+		}
+
+		for _, rel := range o.WithRelations {
+			conf, ok := o.RelationConfigs[rel]
+			if !ok {
+				continue
+			}
+			pipeline = append(pipeline, bson.M{
+				"$lookup": bson.M{
+					"from":         conf.From,
+					"localField":   conf.LocalField,
+					"foreignField": conf.ForeignField,
+					"as":           conf.As,
+				},
+			})
+			if !conf.IsArray {
+				pipeline = append(pipeline, bson.M{
+					"$unwind": bson.M{
+						"path":                       "$" + conf.As,
+						"preserveNullAndEmptyArrays": true,
+					},
+				})
+			}
+		}
+
+		if len(o.SortFields) > 0 {
+			pipeline = append(pipeline, bson.M{"$sort": o.SortFields})
+		}
+		if o.SkipCount > 0 {
+			pipeline = append(pipeline, bson.M{"$skip": o.SkipCount})
+		}
+		if o.LimitCount > 0 {
+			pipeline = append(pipeline, bson.M{"$limit": o.LimitCount})
+		}
+
+		cursor, err := o.Collection.Aggregate(o.getContext(), pipeline)
+		if err != nil {
+			return fmt.Errorf("aggregate error: %w", err)
+		}
+		defer cursor.Close(o.getContext())
+
+		return cursor.All(o.getContext(), results)
+	}
+
+	// fallback to regular Find
 	findOptions := options.Find()
 	if o.LimitCount > 0 {
 		findOptions.SetLimit(o.LimitCount)

@@ -1,10 +1,42 @@
 [English](./Readme.en.md) | [繁體中文](../Readme.md)
 
-# GODM: A Simple Query Mapper for MongoDB in Go
+# GODM: A Lightweight Query Mapper for MongoDB in Go
+
+## 📚 Table of Contents
+- [🧩 Introduction](#-introduction)
+- [✨ Features](#-features)
+- [👀 Observer Mechanism (Model Listening)](#-observer-mechanism-model-listening)
+  - [🎯 Supported Events](#-supported-events)
+  - [📦 Usage](#-usage)
+    - [Defining Observer](#defining-observer)
+    - [Model Self-Registration (Recommended)](#model-self-registration-recommended)
+  - [🌐 Global Observer](#-global-observer)
+  - [🎛️ Observer Extensions](#-observer-extensions)
+    - [✅ Event Filtering](#event-filtering-only-observe-some-events)
+    - [✅ Model Filtering](#model-filtering-only-listen-to-some-models)
+    - [✅ Priority](#priority)
+    - [✅ Error Handling Interception](#error-handling-interception)
+- [🛠 Usage (with User model)](#-usage-with-user-model)
+  - [Method Overriding (Return Custom Type)](#method-overriding-return-custom-type)
+  - [Create and Query](#create-and-query)
+  - [Aggregation and Transaction Operations](#aggregation-and-transaction-operations)
+  - [More Query Examples](#more-query-examples)
+    - [Using WhereID](#using-whereid)
+    - [Using OR Queries](#using-or-queries)
+    - [Using WhereIn and Field Selection](#using-wherein-and-field-selection)
+    - [Using Pagination and Sorting](#using-pagination-and-sorting)
+    - [Using Custom Context (with Timeout)](#using-custom-context-with-timeout)
+    - [Check If Target Exists](#check-if-target-exists)
+- [🔗 Association Queries (with Eager Loading)](#-association-queries-with-eager-loading)
+  - [User → Posts](#user--posts)
+  - [Post → User](#post--user)
+- [💡 Inspiration](#-inspiration)
+- [📂 Project Structure](#-project-structure)
+- [📄 License](#-license)
 
 ## 🧩 Introduction
 
-GODM (Go Object-Document Mapper) is a lightweight query encapsulation tool for MongoDB, implemented in the Go language. It provides an ORM-like development experience and simplifies common query conditions and chain operations, helping you quickly build data models and perform CRUD, aggregation, transaction, and other operations.
+GODM (Go Object-Document Mapper) is a lightweight query wrapper tool for MongoDB, implemented in Go. It provides an ORM-like development experience and simplifies common query conditions and chain operations, helping you quickly build data models and perform CRUD, aggregation, transaction, and other operations.
 
 The core implementation is located in [`pkg/odm`](./pkg/odm), and usage examples can be found in [`examples/`](./examples).
 
@@ -17,13 +49,14 @@ The core implementation is located in [`pkg/odm`](./pkg/odm), and usage examples
 - 💾 Supports CRUD and BulkCreate
 - 🧠 Supports complex query condition combinations (AND / OR)
 - 🔁 Supports MongoDB aggregation pipelines
-- 💼 Built-in transaction encapsulation `WithTransaction`
+- 🔗 Supports eager loading of associated data with `with`
+- 💼 Built-in transaction wrapper `WithTransaction`
 - 👀 Built-in Observer mechanism, supporting model-level, global, sorting, and filtering (Inspired by Laravel)
-- 🧪 Simple and easy to test, modular design facilitates expansion
+- 🧪 Concise and easy to test, modular design for easy extension
 
-## 👀 Observer Mechanism
+## 👀 Observer Mechanism (Model Listening)
 
-GODM has a built-in Observer system similar to Laravel Eloquent, allowing you to automatically trigger corresponding logic before and after the `Create`, `Update`, and `Delete` operations on models, suitable for scenarios such as data validation, logging, and event tracking.
+GODM has a built-in Observer system similar to Laravel Eloquent, allowing you to automatically trigger corresponding logic before and after the model's `Create`, `Update`, and `Delete` operations, suitable for scenarios like data validation, logging, and event tracking.
 
 ### 🎯 Supported Events
 
@@ -33,7 +66,7 @@ GODM has a built-in Observer system similar to Laravel Eloquent, allowing you to
 
 ### 📦 Usage
 
-#### Define Observer
+#### Defining Observer
 
 ```go
 type UserObserver struct{}
@@ -51,7 +84,7 @@ func (UserObserver) Created(model interface{}) error {
 
 #### Model Self-Registration (Recommended)
 
-Models can implement the `ObservedModel` interface to automatically bind the corresponding observer:
+Models can implement the `ObservedModel` interface to automatically bind to the corresponding observer:
 
 ```go
 func (u User) Observers() []odm.ModelObserver {
@@ -59,11 +92,11 @@ func (u User) Observers() []odm.ModelObserver {
 }
 ```
 
-This way, when calling `user.Create()`, the observer will be triggered automatically.
+This way, calling `user.Create()` will automatically trigger the observer.
 
 ### 🌐 Global Observer
 
-You can register a global Observer that applies to all models:
+You can globally register an Observer that applies to all models:
 
 ```go
 odm.RegisterGlobalObserver(AuditObserver{})
@@ -71,7 +104,7 @@ odm.RegisterGlobalObserver(AuditObserver{})
 
 ### 🎛️ Observer Extensions
 
-#### ✅ Event Filtering (Observe Only Certain Events)
+#### ✅ Event Filtering (Only Observe Some Events)
 
 Implement the `EventFilter` interface:
 
@@ -81,7 +114,7 @@ func (o UserObserver) InterestedIn(stage string) bool {
 }
 ```
 
-#### ✅ Model Filtering (Listen Only to Certain Models)
+#### ✅ Model Filtering (Only Listen to Some Models)
 
 Implement the `TypedObserver` interface:
 
@@ -94,17 +127,17 @@ func (o UserObserver) Accepts(model interface{}) bool {
 
 #### ✅ Priority
 
-Implement `PrioritizedObserver` to control the execution order:
+Implement `PrioritizedObserver` to control execution order:
 
 ```go
 func (o UserObserver) Priority() int {
-    return 100 // Higher numbers execute earlier
+    return 100 // The larger the number, the earlier it executes
 }
 ```
 
 #### ✅ Error Handling Interception
 
-A global error handler can be set:
+You can set a global error interceptor:
 
 ```go
 odm.RegisterObserverErrorHandler(func(err error, stage string, model interface{}) {
@@ -112,13 +145,13 @@ odm.RegisterObserverErrorHandler(func(err error, stage string, model interface{}
 })
 ```
 
-If you have more advanced requirements (such as event queues, asynchronous observers), the GODM architecture supports further expansion.
+If you have more advanced requirements (such as event queues, asynchronous observers), the architecture of GODM supports further extensions.
 
-## 🛠 Usage (Using User Model as an Example)
+## 🛠 Usage (with User model)
 
 ### Method Overriding (Return Custom Type)
 
-GODM methods default to returning `*GODM`, but if you want to retain custom model types (e.g., `*User`) to access fields during chain operations, you can override the corresponding methods in your model, for example:
+GODM methods default to returning `*GODM`, but if you want to retain a custom model type (e.g., `*User`) so that you can access fields during chain operations, you can override the corresponding method in the model, for example:
 
 ```go
 func (o *User) SetCollectionName(name string) *User {
@@ -130,7 +163,7 @@ func (o *User) SetCollectionName(name string) *User {
 }
 ```
 
-This way, type consistency can be maintained:
+This way, you can maintain type consistency:
 
 ```go
 u := NewUser().SetCollectionName("custom_users")
@@ -145,7 +178,7 @@ user.Name = "Test"
 user.Email = "test@example.com"
 _ = user.Create()
 
-// Query the first piece of data
+// Query the first record
 err := user.Where("email", "=", "test@example.com").First()
 ```
 
@@ -174,7 +207,7 @@ user := NewUser()
 _ = user.WhereID("65f74c3a09c7a8f812345678").First()
 ```
 
-#### Using OR Query
+#### Using OR Queries
 
 ```go
 var users []User
@@ -216,17 +249,55 @@ user := NewUser().WithContext(ctx)
 _ = user.Where("email", "=", "timeout@example.com").First()
 ```
 
-#### Check if Specific Targets Exist
+#### Check If Target Exists
 
 ```go
 exists, err := NewUser().
     WhereIn("name", []interface{}{"Alice", "Bob"}).
     Exists()
 if err != nil {
-	// error process
+    // error process
 }
 if (exists) {
-	// code ...
+    // code ...
+}
+```
+
+## 🔗 Association Queries (with Eager Loading)
+
+GODM supports association queries, allowing you to conveniently preload associated model data. Here’s how to use the `with` method to query associated data.
+
+### User → Posts
+
+Assuming a `User` has multiple `Post`, you can query like this:
+
+```go
+var users []User
+err := NewUser().
+    With("posts").
+    All(&users)
+
+for _, user := range users {
+    fmt.Println("User:", user.Name)
+    for _, post := range user.Posts {
+        fmt.Println("Post:", post.Title)
+    }
+}
+```
+
+### Post → User
+
+If you want to query `Post` and its corresponding `User`, you can do this:
+
+```go
+var posts []Post
+err := NewPost().
+    With("user").
+    All(&posts)
+
+for _, post := range posts {
+    fmt.Println("Post:", post.Title)
+    fmt.Println("User:", post.User.Name)
 }
 ```
 
@@ -240,30 +311,34 @@ The design of GODM is inspired by [Laravel Eloquent ORM](https://laravel.com/doc
 
 ```
 godm/
-├── examples/                  # Usage examples, including entry points and custom User models
+├── examples/                  		# Usage examples
+│	└── model/                  	# Custom User / Post models
+│		├── post.go
+│		└── user.go
 │   ├── example.go
-│   └── user_observer.go
-│   └── user.go
+│   └── observer.go
+│   └── relation.go
 ├── pkg/
-│   └── odm/                   # Core implementation of GODM
-│       ├── aggregate.go       # Helper for MongoDB aggregation operations
-│       ├── config.go          # Configuration and global database client settings
-│       ├── context.go         # Context handling (custom context injection)
-│       ├── crud.go            # CRUD methods: create, update, delete, etc.
-│       ├── model.go           # GODM structure definitions and chain operation API
-│       ├── operator.go        # MongoDB operators and corresponding handling
-│       ├── query.go           # Query building logic (where, orWhere, select, etc.)
-│       ├── transaction.go     # Transaction wrapping using MongoDB sessions
-│       ├── util.go            # Utility functions (e.g., ObjectID handling)
-│       ├── observer.go        # Observer interface and registration logic
-│       └── observer_dispatch.go # Observer execution and dispatch logic
-├── go.mod                     # Go module definition file
-└── README.md                  # This documentation file
-└── Changelog.md               # Version history
+│   └── odm/                   		# Core implementation of GODM
+│       ├── aggregate.go       		# MongoDB aggregation operation helpers
+│       ├── config.go          		# Configuration and global database client settings
+│       ├── context.go         		# Context handling (custom context injection)
+│       ├── crud.go            		# CRUD methods: create, update, delete, etc.
+│       ├── model.go           		# GODM structure definitions and chain operation API
+│       ├── operator.go        		# MongoDB operators and corresponding handling
+│       ├── query.go           		# Query building logic (where, orWhere, select, etc.)
+│       ├── relation.go        		# Association preloading (With, SetRelationConfig, etc.)
+│       ├── transaction.go     		# Transaction wrapping using MongoDB sessions
+│       ├── util.go            		# Utility functions (e.g., ObjectID handling)
+│       ├── observer.go        		# Observer interface and registration logic
+│       └── observer_dispatch.go 	# Observer execution and dispatch logic
+├── go.mod                     		# Go module definition file
+└── README.md                  		# This documentation file
+└── Changelog.md              		# Version history
 ```
 
 ---
 
 ## 📄 License
 
-This project is licensed under the [MIT License](./License).
+This project is licensed under the [MIT License](../License).

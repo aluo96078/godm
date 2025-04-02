@@ -25,6 +25,9 @@ func Examples() {
 	// 指定全域 MongoClient
 	// Set the global MongoClient
 	odm.MongoClient = client
+	// 指定全域資料庫名稱
+	// Set the global database name
+	odm.DBName = "test"
 
 	// 註冊全局觀察者
 	// Register global observers

@@ -8,6 +8,7 @@ import (
 )
 
 var MongoClient *mongo.Client
+var DBName string
 
 type GODM struct {
 	Collection     *mongo.Collection
@@ -20,7 +21,7 @@ type GODM struct {
 	Projection     bson.M
 	Ctx            context.Context
 	CollectionName string
-	DbName         string
+	DBName         string
 
 	Observers []ModelObserver // 支援多個 observer
 

@@ -31,7 +31,7 @@ func NewUser() *User {
 func (o *User) SetCollectionName(name string) *User {
 	o.CollectionName = name
 	if o.Collection != nil {
-		o.Collection = odm.MongoClient.Database(o.DbName).Collection(name)
+		o.Collection = odm.MongoClient.Database(o.DBName).Collection(name)
 	}
 	return o
 }

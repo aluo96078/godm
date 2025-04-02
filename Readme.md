@@ -3,20 +3,13 @@
 # GODM：MongoDB for Go 的簡易查詢映射器
 
 ## 📚 目錄
-- [🧩 簡介](#-簡介)
-- [✨ 功能特色](#-功能特色)
-- [👀 Observer 機制（模型監聽）](#-observer-機制模型監聽)
-  - [🎯 支援的事件](#-支援的事件)
-  - [📦 使用方式](#-使用方式)
-    - [定義 Observer](#定義-observer)
-    - [模型自註冊（推薦）](#模型自註冊推薦)
-  - [🌐 全域 Observer](#-全域-observer)
-  - [🎛️ Observer 擴充功能](#-observer-擴充功能)
-    - [✅ 事件過濾](#事件過濾只觀察某些事件)
-    - [✅ 模型過濾](#模型過濾只監聽某些模型)
-    - [✅ 優先順序](#優先順序priority)
-    - [✅ 錯誤處理攔截](#錯誤處理攔截)
-- [🛠 使用方式（以 User 模型為例）](#-使用方式以-user-模型為例)
+
+- [🧩 簡介](#🧩-簡介)
+- [✨ 功能特色](#✨-功能特色)
+- [🛠 使用方式（以 User 模型為例）](#🛠-使用方式以-user-模型為例)
+  - [定義模型](#定義模型)
+  - [載入資料庫連線](#載入資料庫連線)
+  - [指定模型使用其他資料庫](#指定模型使用其他資料庫)
   - [方法覆寫（回傳自定義型別）](#方法覆寫回傳自定義型別)
   - [建立與查詢](#建立與查詢)
   - [聚合與事務操作](#聚合與事務操作)
@@ -27,12 +20,27 @@
     - [使用分頁與排序](#使用分頁與排序)
     - [使用自定義上下文（含超時）](#使用自定義上下文含超時)
     - [判斷指定目標是否存在](#判斷指定目標是否存在)
-- [🔗 關聯查詢（with 關聯預載入）](#-關聯查詢with-關聯預載入)
+- [🔗 關聯查詢（with 預載入）](#🔗-關聯查詢with-預載入)
+  - [模型定義](#模型定義)
+  - [關聯設定](#關聯設定)
   - [User → Posts](#user--posts)
   - [Post → User](#post--user)
-- [💡 靈感來源](#-靈感來源)
-- [📂 專案結構](#-專案結構)
-- [📄 授權](#-授權)
+- [👀 Observer 機制（模型監聽）](#👀-observer-機制模型監聽)
+  - [支援的事件](#支援的事件)
+  - [使用方式](#使用方式)
+    - [定義 Observer](#定義-observer)
+    - [模型自註冊（推薦）](#模型自註冊推薦)
+    - [全域 Observer](#全域-observer)
+    - [Observer 擴充功能](#observer-擴充功能)
+      - [事件過濾](#事件過濾只觀察某些事件)
+      - [模型過濾](#模型過濾只監聽某些模型)
+      - [優先順序](#優先順序priority)
+      - [錯誤處理攔截](#錯誤處理攔截)
+- [💡 靈感來源](#💡-靈感來源)
+- [🖥 系統架構](#🖥-系統架構)
+- [📂 專案結構](#📂-專案結構)
+- [📝 使用注意事項與擴展](#📝-使用注意事項與擴展)
+- [📄 授權](#📄-授權)
 
 
 ## 🧩 簡介
@@ -55,100 +63,52 @@ GODM（Go Object-Document Mapper）是一個用於 MongoDB 的輕量級查詢封
 - 👀 內建 Observer 機制，支援模型級、全域、排序與過濾（Inspired by Laravel）
 - 🧪 簡潔易測試，模組化設計便於擴展
 
-## 👀 Observer 機制（模型監聽）
-
-GODM 內建 Laravel Eloquent 式的 Observer 系統，可讓你在模型的 `Create`、`Update`、`Delete` 操作前後，自動觸發對應邏輯，適合用於資料驗證、日誌記錄、事件追蹤等情境。
-
-### 🎯 支援的事件
-
-- `creating` / `created`
-- `updating` / `updated`
-- `deleting` / `deleted`
-
-### 📦 使用方式
-
-#### 定義 Observer
-
-```go
-type UserObserver struct{}
-
-func (UserObserver) Creating(model interface{}) error {
-	fmt.Println("Creating:", model)
-	return nil
-}
-
-func (UserObserver) Created(model interface{}) error {
-	fmt.Println("Created:", model)
-	return nil
-}
-```
-
-#### 模型自註冊（推薦）
-
-模型可以實作 `ObservedModel` 介面，自動綁定對應的 observer：
-
-```go
-func (u User) Observers() []odm.ModelObserver {
-	return []odm.ModelObserver{UserObserver{}}
-}
-```
-
-這樣在呼叫 `user.Create()` 時會自動觸發 observer。
-
-### 🌐 全域 Observer
-
-可以全域註冊 Observer，對所有模型生效：
-
-```go
-odm.RegisterGlobalObserver(AuditObserver{})
-```
-
-### 🎛️ Observer 擴充功能
-
-#### ✅ 事件過濾（只觀察某些事件）
-
-實作 `EventFilter` 介面：
-
-```go
-func (o UserObserver) InterestedIn(stage string) bool {
-	return stage == "creating" || stage == "deleted"
-}
-```
-
-#### ✅ 模型過濾（只監聽某些模型）
-
-實作 `TypedObserver` 介面：
-
-```go
-func (o UserObserver) Accepts(model interface{}) bool {
-	_, ok := model.(*User)
-	return ok
-}
-```
-
-#### ✅ 優先順序（Priority）
-
-實作 `PrioritizedObserver`，可控制執行順序：
-
-```go
-func (o UserObserver) Priority() int {
-	return 100 // 數字越大越早執行
-}
-```
-
-#### ✅ 錯誤處理攔截
-
-可設定全域錯誤攔截器：
-
-```go
-odm.RegisterObserverErrorHandler(func(err error, stage string, model interface{}) {
-	log.Printf("[observer error] %s: %v", stage, err)
-})
-```
-
-如果你有更多進階需求（例如事件佇列、非同步 observer），GODM 架構已支援進一步擴展。
-
 ## 🛠 使用方式（以 User 模型為例）
+
+### 定義模型
+```go
+
+// User 定義使用者模型，內嵌 ODM，並包含使用者專屬欄位。
+type User struct {
+	odm.GODM `bson:"-"` // 用於繼承 GODM 的相關屬性
+	ID       primitive.ObjectID `bson:"_id,omitempty"`
+	Name     string             `bson:"name"`
+	Email    string             `bson:"email"`
+    // 需要使用 With 關聯的模型
+	Posts []Post `bson:"posts,omitempty"`
+}
+
+// NewUser 建立一個新的 User 實例，並初始化 ODM。
+func NewUser() *User {
+	u := &User{}
+    // 完成 GODM 初始化
+	u.Use(u)
+	return u
+}
+```
+
+### 載入資料庫連線
+```go
+// 應替換爲設定檔中的資料庫連線資訊
+client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI("mongodb://root:1145141919810@localhost:27017"))
+if err != nil {
+    log.Fatal(err)
+}
+// 指定全域 MongoClient
+odm.MongoClient = client
+// 指定全域資料庫名稱
+odm.DBName = "test"
+
+// 一定要先設定 odm.DBName 以及 odm.MongoClient，不然會報錯
+u := NewUser()
+```
+
+### 指定模型使用其他資料庫
+```go
+// 資料庫連線設定...
+u := NewUser()
+u.SetDBName("db_name")
+```
 
 ### 方法覆寫（回傳自定義型別）
 
@@ -264,17 +224,82 @@ if (exists) {
 }
 ```
 
-## 🔗 關聯查詢（with 關聯預載入）
+#### With 關聯預載
 
-GODM 支援關聯查詢，可以方便地預載入關聯模型的資料。以下是如何使用 `with` 方法來查詢關聯資料的示例。
+##### 模型定義
 
-### User → Posts
+```go
+// user.go
+type User struct {
+	odm.GODM `bson:"-"` // 用於繼承 GODM 的相關屬性
+	ID       primitive.ObjectID `bson:"_id,omitempty"`
+	Name     string             `bson:"name"`
+	Email    string             `bson:"email"`
+    // 需要使用 With 關聯的模型
+	Posts []Post `bson:"posts,omitempty"`
+}
+```
+
+```go
+// post.go
+
+type Post struct {
+	odm.GODM `bson:"-"`
+	ID       primitive.ObjectID `bson:"_id,omitempty"`
+	UserID   primitive.ObjectID `bson:"user_id"`
+	Title    string             `bson:"title"`
+	Body     string             `bson:"body"`
+    // 需要使用 With 關聯的模型
+	User *User `bson:"user,omitempty"`
+}
+```
+#### 關聯設定
+```go
+// NewUserModel 建立具備一對多 with 關聯設定的 User 模型
+func NewUserModel() *odm.GODM {
+	user := NewUser() // 參考上方的 NewUser()
+	return user.SetRelationConfig(map[string]odm.RelationConfig{
+		"posts": {
+            // 關聯目標表名
+			From:         "posts",
+            // 本表關聯鍵
+			LocalField:   "_id",
+            // 外表主鍵
+			ForeignField: "user_id",
+            // 關聯資料欄位名稱
+			As:           "posts",
+            // 是否有多筆資料
+			IsArray:      true,
+		},
+	})
+}
+// NewPostModel 建立具備一對一 with 關聯設定的 Post 模型
+func NewPostModel() *odm.GODM {
+	post := examples.NewPost()
+	return post.SetRelationConfig(map[string]odm.RelationConfig{
+		"user": {
+            // 關聯目標表名
+			From:         "users",
+            // 本表關聯鍵
+			LocalField:   "user_id",
+            // 外表主鍵
+			ForeignField: "_id",
+            // 關聯資料欄位名稱
+			As:           "user",
+            // 是否有多筆資料
+			IsArray:      false,
+		},
+	})
+}
+```
+
+##### User → Posts
 
 假設一個 `User` 有多個 `Post`，可以這樣查詢：
 
 ```go
 var users []User
-err := NewUser().
+err := NewUserModel().
     With("posts").
     All(&users)
 
@@ -286,13 +311,13 @@ for _, user := range users {
 }
 ```
 
-### Post → User
+##### Post → User
 
 如果要查詢 `Post` 以及其對應的 `User`，可以這樣做：
 
 ```go
 var posts []Post
-err := NewPost().
+err := NewPostModel().
     With("user").
     All(&posts)
 
@@ -302,11 +327,119 @@ for _, post := range posts {
 }
 ```
 
+## 👀 Observer 機制（模型監聽）
+
+GODM 內建 Laravel Eloquent 式的 Observer 系統，可讓你在模型的 `Create`、`Update`、`Delete` 操作前後，自動觸發對應邏輯，適合用於資料驗證、日誌記錄、事件追蹤等情境。
+
+### 🎯 支援的事件
+
+- `creating` / `created`
+- `updating` / `updated`
+- `deleting` / `deleted`
+
+### 📦 使用方式
+
+#### 定義 Observer
+
+```go
+type UserObserver struct{}
+
+func (UserObserver) Creating(model interface{}) error {
+	fmt.Println("Creating:", model)
+	return nil
+}
+
+func (UserObserver) Created(model interface{}) error {
+	fmt.Println("Created:", model)
+	return nil
+}
+```
+
+#### 模型自註冊（推薦）
+
+模型可以實作 `ObservedModel` 介面，自動綁定對應的 observer：
+
+```go
+func (u User) Observers() []odm.ModelObserver {
+	return []odm.ModelObserver{UserObserver{}}
+}
+```
+
+這樣在呼叫 `user.Create()` 時會自動觸發 observer。
+
+### 🌐 全域 Observer
+
+可以全域註冊 Observer，對所有模型生效：
+
+```go
+odm.RegisterGlobalObserver(AuditObserver{})
+```
+
+### 🎛️ Observer 擴充功能
+
+#### ✅ 事件過濾（只觀察某些事件）
+
+實作 `EventFilter` 介面：
+
+```go
+func (o UserObserver) InterestedIn(stage string) bool {
+	return stage == "creating" || stage == "deleted"
+}
+```
+
+#### ✅ 模型過濾（只監聽某些模型）
+
+實作 `TypedObserver` 介面：
+
+```go
+func (o UserObserver) Accepts(model interface{}) bool {
+	_, ok := model.(*User)
+	return ok
+}
+```
+
+#### ✅ 優先順序（Priority）
+
+實作 `PrioritizedObserver`，可控制執行順序：
+
+```go
+func (o UserObserver) Priority() int {
+	return 100 // 數字越大越早執行
+}
+```
+
+#### ✅ 錯誤處理攔截
+
+可設定全域錯誤攔截器：
+
+```go
+odm.RegisterObserverErrorHandler(func(err error, stage string, model interface{}) {
+	log.Printf("[observer error] %s: %v", stage, err)
+})
+```
+
+如果你有更多進階需求（例如事件佇列、非同步 observer），GODM 架構已支援進一步擴展。
+
+
+
+
 ---
 
 ## 💡 靈感來源
 
 GODM 的設計靈感來自於 [Laravel Eloquent ORM](https://laravel.com/docs/eloquent)，試圖為 Golang 帶來一種熟悉且簡潔的資料查詢體驗。它並非 ORM，而是專注於查詢構建、結果解碼與事務包裝，適合喜歡鏈式語法與輕量抽象的使用者。
+
+## 🖥 系統架構
+
+GODM 的核心模組包括：
+
+- 查詢構建器：負責鏈式查詢條件的處理
+- CRUD 操作：處理建立、查詢、更新、刪除
+- 聚合操作：支持 MongoDB 聚合管道
+- 事務處理：封裝 MongoDB session 的事務
+- Observer 模組：負責模型操作前後的事件監聽與分派
+- With 關聯預載：透過單次查詢載入關聯資料
+
 
 ## 📂 專案結構
 
@@ -339,6 +472,14 @@ godm/
 ```
 
 ---
+
+## 📝 使用注意事項與擴展
+
+注意事項：
+
+- GODM 為輕量級查詢封裝工具，不是完整的 ORM。
+- 重點在於查詢構建、結果解碼及事務包裝。
+- 設計模組化，便於測試與擴展，可根據需要加入事件佇列或非同步處理。
 
 ## 📄 授權
 

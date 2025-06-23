@@ -110,3 +110,8 @@ func (o *GODM) WhereID(id interface{}) *GODM {
 	}
 	return o.Where("_id", "=", objectID)
 }
+
+// ToBson returns the built filter as bson.D.
+func (o *GODM) ToBson() bson.D {
+	return o.buildFinalFilter()
+}

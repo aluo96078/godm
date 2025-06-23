@@ -3,6 +3,7 @@ package odm
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -13,7 +14,7 @@ func (o *GODM) hasObjectIDField() bool {
 	typ := reflect.TypeOf(o.Model).Elem()
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
-		if field.Tag.Get("bson") == "_id" && field.Type == reflect.TypeOf(primitive.ObjectID{}) {
+		if strings.HasPrefix(field.Tag.Get("bson"), "_id") && field.Type == reflect.TypeOf(primitive.ObjectID{}) {
 			return true
 		}
 	}
